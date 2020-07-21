@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>１５パズル</title>
+    <!-- デフォルトの挙動を解除するためのcss -->
+    <link rel="stylesheet" href="css/reset.css">
+    <!-- これは自分で作ったcssファイル -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="site_box">
+    <div id="sb_inner">
+
+      <div id="header">
+        <div id="he_inner">
+
+          <h1>１５パズル</h1>
+        </div>
+      </div>
+      
+      <div id="timer">
+        <div id="ti_inner">
+
+        </div>
+      </div>
+      <div id="main_bord">
+        <div id="mb_inner">
+          <div id="slide_bord">
+            <div id="sl_inner">
+
+            </div>
+          </div>
+          <div id="control_pannel">
+            <div id="cp_inner">
+              <button id="start">スタート</button>
+              <button id="reset">リセット</button>
+              <!-- No16の置き場を設ける -->
+    
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+   
+    <!-- jquery を先に読み込む（先に読み込まないと使えません！） -->
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+ 
+
+    <script>
+
+    ///////////////////////////////////////////////////////
+    // １６種類のタイルを１６次元の連想配列で定義
+    ///////////////////////////////////////////////////////
+    var num_tile = 16;
+    var tile=[];
+    var tile={"no1":{"no":1,"image":'img/タイル1.jpg'}} ;
+    // var tile={"no1":{"no":1,"image":' src="img/タイル1.jpg"'}} ;
+    for (var i = 1; i < num_tile; i++ ){
+      var str_index = "no" + (i+1);
+      var str_src = 'img/タイル' + (i+1) + '.jpg';
+      // var str_src = ' src="img/タイル' + (i+1) + '.jpg"';
+      tile[str_index]={"no":(i+1),"image":str_src}
+    }
+    console.log(tile) ;
+
+    ///////////////////////////////////////////////////////
+    // ウインドウを開いた時の動作
+    ///////////////////////////////////////////////////////
+    // 16個のタイル配置用の要素を追加し、タイルを配置
+    window.addEventListener('load', function() {
+      for(var i = 1; i < num_tile+1; i++){
+        $('#sl_inner').append('<div class="tile" id="no'+i+'"></div>');
+        // $('#sl_inner').append('<div class="tile" id="no'+i+'" ondragover="f_dragover(event)" ondrop="f_drop(event)"></div>');
+        document.getElementById('no'+i).style.width = '24%';
+        document.getElementById('no'+i).style.height = '24%';
+        document.getElementById('no'+i).style.border = '1px solid darkgray';
+        var str_index = '<img id="tile'+i+'" src="'+tile["no"+i].image+'" width="100%" draggable="false" ondragstart="f_dragstart(event)">' ;
+        $('#sl_inner #no'+i).append(str_index);
+        console.log(str_index);
+      }
+
+    })
+
+
+    ///////////////////////////////////////////////////////
+    // リセットボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    document.querySelector('#reset').onclick=function() {
+      // リロード
+      document.location.reload();
+    }
+
+
+
+
+
+
+    ///////////////////////////////////////////////////////
+    // スタートボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    document.querySelector('#start').onclick=function() {
+      // スタートボタンの無効化
+      $('#start').prop('disabled',true);
+     // 4*4のタイルの並びの初期状態（各スロットに入るタイルの番号）を設定する
+     tile_lineup = init_tile_lineup(num_tile);
+     // テスト用 （1から15まで連番）
+    //  tile_lineup=Array(num_tile).fill().map((_, i) => i+1);
+    //  tile_lineup[15]=-1;
+    //   console.log(tile_lineup);
+
+      // set_tile(1,tile_lineup[16])
+
+     // タイルを初期状態に配置する
+     for(var i=0; i < num_tile; i++) {
+      //  imgのid (tile1 - tile16)
+      var img_id = "tile" + (i+1);
+       
+      if(tile_lineup[i] > 0){
+      // 配置するタイルの画像の場所 (tile["no?"].image),no1-no16
+      // tile_lineup[i]:配置するタイル番号(1-16),iは0-15
+      var tile_src = tile["no"+tile_lineup[i]].image;
+       console.log(img_id, tile_src);
+        // i:スロット番号　tile_lineup[i]:タイル番号
+        set_tile(img_id, tile_src)
+      }else{
+        // タイルを配置しないスロットはimgを削除
+        $('#tile'+(i+1)).remove();
+        // 空欄のスロット（tile_lineupのindex)を記憶
+        var blank_slot = i;
+      }
+    }
+
+    // １６の置き場
+    $('#cp_inner').append('<div class="tile" id="waiting"></div>');
+        document.getElementById('no'+i).style.width = '24%';
+        document.getElementById('no'+i).style.height = '24%';
+        document.getElementById('no'+i).style.border = '1px solid darkgray';
+        var str_index = '<img id="waiting_tile" src="'+tile["no16"].image+'" width="48px" draggable="true" ondragstart="f_dragstart(event)">' ;
+        $('#cp_inner #waiting').append(str_index);
+
+
+      // 空白周辺のタイルをドラッグ可能にする
+      // console.log(blank_slot);
+      enable_drag(blank_slot);
+
+    }
+
+  
+
+    ///////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////
+    //  ドラッグ　アンド　ドロップ
+    ///////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////
+
+
+    ///////////////////////////////////////////////////////
+    // ドラッグ開始
+    ///////////////////////////////////////////////////////
+    function f_dragstart(event){
+    //ドラッグするデータのid名をDataTransferオブジェクトにセット
+      event.dataTransfer.setData("text", event.target.id);
+    }
+
+
+    ///////////////////////////////////////////////////////
+    //  ドラッグ要素がドロップ要素に重なっている間
+    ///////////////////////////////////////////////////////
+    function f_dragover(event){
+    //dragoverイベントをキャンセルして、ドロップ先の要素がドロップを受け付けるようにする
+      event.preventDefault();
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // ドロップ時
+    ///////////////////////////////////////////////////////
+    function f_drop(event){
+    //ドラッグされたデータのid名をDataTransferオブジェクトから取得
+      var id_name = event.dataTransfer.getData("text");
+      console.log("id_name",id_name);
+      //id名からドラッグされた要素を取得
+      var drag_elm =document.getElementById(id_name);
+      console.log("drag_elm",drag_elm);
+      //ドロップ先にドラッグされた要素を追加
+      event.currentTarget.appendChild(drag_elm);
+      //エラー回避のため、ドロップ処理の最後にdropイベントをキャンセルしておく
+      event.preventDefault();
+  
+      // 移動前の親要素idを取得し、配列tile_lineupの移動前indexを計算
+      var id_dd_src_before=id_dd_src;
+      var tl_index_dd_src_before=tl_index_dd_src;
+      var id_dd_src="no"+id_name.substr(4);
+      var tl_index_dd_src=id_name.substr(4)-1;
+      console.log("source",id_dd_src,tl_index_dd_src);
+
+      // 移動先の親要素idを取得し、配列tile_lineupの移動先indexを計算
+      var id_dd_dest_before=id_dd_dest;
+      var tl_index_dd_dest_before=tl_index_dd_dest;
+      var id_dd_dest=$("#"+id_name).parent().attr('id');
+      var tl_index_dd_dest=id_dd_dest.substr(2)-1;
+      console.log("destination",id_dd_dest,tl_index_dd_dest);
+
+
+      // ドロップされたtileが１６の場合、終了判定
+      if(id_name=="waiting_tile"){
+        // tile_lineup[]のコピーを作成
+        var copy_tile_lineup=JSON .parse(JSON.stringify(tile_lineup));
+        //  copy_tile_lineupに１６の情報を追加
+        copy_tile_lineup[tl_index_dd_dest] = 16;
+        // 結果判定
+        var result = check_result(num_tile,copy_tile_lineup);
+        console.log(result,num_tile,copy_tile_lineup);
+
+        if(result==true){
+          alert("mission complete!!!");
+
+        }else{
+          alert("keep on!!!")
+          // ボード上の１６を消去する
+          // $('#tile'+(tl_index_dd_dest+1)).remove();
+          $('#waiting_tile').remove();
+          // １６を置き場に返す
+          var str_index = '<img id="waiting_tile" src="'+tile["no16"].image+'" width="48px" draggable="true" ondragstart="f_dragstart(event)">' ;
+        $('#cp_inner #waiting').append(str_index);
+          // タイルの移動情報を戻す
+        var id_dd_src=id_dd_src_before;
+        var tl_index_dd_src=tl_index_dd_src_before;
+        var id_dd_dest=id_dd_dest_before;
+        var tl_index_dd_dest=tl_index_dd_dest_before;
+
+          return;
+        }
+
+      }
+
+      // タイル配置配列(tile_lineup[])の更新
+      tile_lineup[tl_index_dd_dest]=tile_lineup[tl_index_dd_src];
+      tile_lineup[tl_index_dd_src]=-1;
+
+      // 移動した<img>のid変更
+      var target_img = document.getElementById(id_name);
+      target_img.id = "tile"+id_dd_dest.substr(2);
+
+      // 前のブランクスロット（ドラック先）周辺のタイルのドラックを禁止
+      var old_blank_slot = tl_index_dd_dest;
+      var new_blank_slot = tl_index_dd_src;
+      disable_drag(old_blank_slot, new_blank_slot);
+
+      // 新しいブランクスロット（ドラッグ元）周辺のタイルのドラックを許可
+      enable_drag(new_blank_slot);
+
+
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // 結果を評価する
+    ///////////////////////////////////////////////////////
+    // var result = check_result(num_tile,tile_lineup);
+    // console.log(result);
+
+
+
+    ///////////////////////////////////////////////////////
+    //i番目のスロットのタイル画像を配置する関数
+    ///////////////////////////////////////////////////////
+    function set_tile(img_id, tile_src){
+      var target_slot = document.getElementById(img_id);
+      // 画像srcを設定
+      target_slot.setAttribute('src', tile_src);
+      // ドラッグを禁止
+      target_slot.setAttribute('draggable', "false");
+        console.log(target_slot);
+    }
+
+    
+    ///////////////////////////////////////////////////////
+    // タイルの並びの初期状態を設定する関数
+    ///////////////////////////////////////////////////////
+    function init_tile_lineup(num_tile){
+      var init_tiles=new Array(16).fill(-1);
+      // console.log("初期",init_tiles);
+
+      for(i = num_tile ; i > 1; i--){
+        var position=rand(i)-1; //タイルの場所
+        // 位置をバラけさせるために、位置決めににランダムのオフセットを加える
+        var position_offset=rand(num_tile)-1;
+        position=position+position_offset;
+        // 位置が範囲を越えた場合は戻す
+        if(position >= num_tile){
+          position = position-num_tile;
+        }
+        // console.log("no",i-1,"position",position);
+        //場所が既に使用してされている場合、右隣へ移動
+        while (init_tiles[position] > 0 ){
+          position ++;
+          // 位置が範囲を越えた場合は戻す
+         if(position >= num_tile){
+            position = position-num_tile;
+         }
+        }
+        // console.log("場所の占有状況",init_tiles[position] > 0);
+        init_tiles[position] = i-1;
+        // console.log("追加後",init_tiles);
+      }
+      return init_tiles;
+    }
+
+
+    
+    ///////////////////////////////////////////////////////
+    // 前の空欄の周辺のタイルをドラック禁止にする関数
+    ///////////////////////////////////////////////////////
+    function disable_drag(old_blank_slot, new_blank_slot){
+    // blank_slot: 前の空欄のスロット（tile_lineupの添字)
+      console.log("disable",old_blank_slot, new_blank_slot);
+    // 空欄が最上段意外の場合、上のタイル(-4)のドラックを禁止
+      if((old_blank_slot-4 > -1) && (old_blank_slot-4 != new_blank_slot)){
+      //  imgのid (tile1 - tile16)
+      var img_id = "tile" + (old_blank_slot-4+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを禁止
+      target_slot.setAttribute('draggable', "false");
+      }
+    // 空欄が最下段意外の場合、下のタイル(+4)のドラックを禁止
+    if((old_blank_slot+4 < 16) && (old_blank_slot+4 != new_blank_slot)){
+      var img_id = "tile" + (old_blank_slot+4+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを禁止
+      target_slot.setAttribute('draggable', "false");
+      }
+    // 空欄が左端以外（ n %4  != 0 )の場合、左のタイル(-1)のドラックを禁止
+    if((old_blank_slot % 4 != 0) && (old_blank_slot-1 != new_blank_slot)){
+      var img_id = "tile" + (old_blank_slot-1+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを禁止
+      target_slot.setAttribute('draggable', "false");
+      }
+    // 空欄が右端以外（ n %4  != 3 )の場合、右のタイル(+1)のドラックを禁止
+    if((old_blank_slot % 4 != 3) && (old_blank_slot+1 != new_blank_slot)){
+      var img_id = "tile" + (old_blank_slot+1+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを禁止
+      target_slot.setAttribute('draggable', "false");
+      }
+
+      // ドロップを受け入れたあと、重複しての受け入れを禁止とする
+      var id_blank_slot = document.getElementById('no'+(old_blank_slot+1));
+      id_blank_slot.removeAttribute("ondragover");
+      id_blank_slot.removeAttribute("ondrop");
+    }
+
+    
+    ///////////////////////////////////////////////////////
+    // 空欄の周辺のタイルをドラック可能にする関数
+    ///////////////////////////////////////////////////////
+    function enable_drag(blank_slot){
+    // blank_slot: 空欄のスロット（tile_lineupの添字)
+      // console.log(blank_slot);
+    // 空欄が最上段意外の場合、上のタイル(-4)がドラック可能
+      if(blank_slot-4 > -1){
+      //  imgのid (tile1 - tile16)
+      var img_id = "tile" + (blank_slot-4+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを許可
+      target_slot.setAttribute('draggable', "true");
+      }
+    // 空欄が最下段意外の場合、下のタイル(+4)がドラック可能
+    if(blank_slot+4 < 16){
+      var img_id = "tile" + (blank_slot+4+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを許可
+      target_slot.setAttribute('draggable', "true");
+      }
+    // 空欄が左端以外（ n %4  != 0 )の場合、左のタイル(-1)がドラック可能
+    if(blank_slot % 4 != 0){
+      var img_id = "tile" + (blank_slot-1+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを許可
+      target_slot.setAttribute('draggable', "true");
+      }
+    // 空欄が右端以外（ n %4  != 3 )の場合、右のタイル(+1)がドラック可能
+    if(blank_slot % 4 != 3){
+      var img_id = "tile" + (blank_slot+1+1);
+      var target_slot = document.getElementById(img_id);
+      // ドラッグを許可
+      target_slot.setAttribute('draggable', "true");
+      }
+
+      // 空欄をドロップ受け入れ可能にする
+      var id_blank_slot = document.getElementById('no'+(blank_slot+1));
+      id_blank_slot.setAttribute("ondragover","f_dragover(event)");
+      id_blank_slot.setAttribute("ondrop", "f_drop(event)");
+
+    }
+
+
+    
+    ///////////////////////////////////////////////////////
+    // 結果を評価する関数
+    ///////////////////////////////////////////////////////
+    function check_result(num_tile,tile_lineup){
+      const complete_lineup=new Array(num_tile).fill().map((_, i) => i+1);
+
+      // 配列は比較演算子で比較できないため、json文字列に変換して比較する
+      if (JSON.stringify(tile_lineup) == JSON.stringify(complete_lineup)) {
+        var result = true;
+      }else{
+        var result = false;
+      }
+      return result;
+    }
+
+    
+    ///////////////////////////////////////////////////////
+    // 1以上、引数 n 以下の乱数を発生する
+    ///////////////////////////////////////////////////////
+    function rand(n){
+      var num = Math.floor(Math.random()*n+1);
+      return num;
+    }
+
+
+
+
+  </script>
+  
+</body>
+</html>

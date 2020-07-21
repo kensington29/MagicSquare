@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>魔法陣</title>
+    <!-- デフォルトの挙動を解除するためのcss -->
+    <link rel="stylesheet" href="css/reset.css">
+    <!-- これは自分で作ったcssファイル -->
+    <link rel="stylesheet" href="css/style_magic.css">
+</head>
+<body>
+  <div id="site_box">
+    <div id="sb_inner">
+
+      <div id="header">
+        <div id="he_inner">
+
+          <h1>魔法陣</h1>
+          <button id="instruction">あそびかた</button>
+        </div>
+      </div>
+      
+      <div id="timer">
+        <div id="ti_inner">
+
+        </div>
+      </div>
+      <div id="main_bord">
+        <div id="mb_inner">
+          <div id="slide_bord">
+            <div id="sl_inner"></div>
+          </div>
+          <div id="control_pannel">
+            <div id="cp_inner">
+              <div id="set_gridsize">
+                <div id="select_grid_size">
+                  <select required id="sl_grid_size">
+                    <option value="" hidden>魔法陣の大きさを選択してください</option>
+                    <option value="9">３×３</option>
+                    <option value="16">４×４</option>
+                    <option value="25">５×５</option>
+                  </select>
+                </div>
+                <button id="set" disabled="true" onclick="click_set()">けってい</button>
+                
+              </div>
+              <div id="game_control">
+                <button id="start" disabled="true" onclick="click_start(Number(this.value))">はじめ</button>
+                <button id="reset" disabled="true" onclick="click_reset()">やりなおし</button>
+
+              </div>
+              <div id="hold">
+                <div id="tile_storage">
+                  <div id="ts_inner"></div>
+  
+                </div>
+                <button id="finish" disabled="true" onclick="click_finish()">かんせい</button>
+
+              </div>
+              
+    
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- jquery を先に読み込む（先に読み込まないと使えません！） -->
+  <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+
+  <script>
+    const maxsize=25;
+    let tile=[];
+    let tile_lineup=[];
+    let hold_lineup=[];
+
+
+    ///////////////////////////////////////////////////////
+    // 25（maxsize)種類のタイルを25次元の連想配列で定義
+    ///////////////////////////////////////////////////////
+
+
+    tile={"no1":{"no":1,"image":'img/タイル1.jpg'}} ;
+    for (let i = 1; i < maxsize; i++ ){
+      let str_index = "no" + (i+1);
+      let str_src = 'img/タイル' + (i+1) + '.jpg';
+      tile[str_index]={"no":(i+1),"image":str_src}
+    }
+    console.log(tile) ;
+
+
+    ///////////////////////////////////////////////////////
+    // ウインドウを開いた時の動作
+    ///////////////////////////////////////////////////////
+    // 16個のタイル配置用の要素を追加し、タイルを配置
+    window.addEventListener('load', function() {
+      create_grid("sl_inner",maxsize);
+      create_grid("ts_inner",maxsize);
+    })
+
+
+
+    ///////////////////////////////////////////////////////
+    // あそびかたボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    document.querySelector('#instruction').onclick=function() {
+      // 説明ウインドウの表示
+      window.open( "instruction.html" , "_blank", "menubar=0,width=350,height=230,top=100,left=100,menubar=0,toolbar=0,location=0,status=0, resizable=0");
+    }
+
+    ///////////////////////////////////////////////////////
+    // サイズを選択した時の動作
+    ///////////////////////////////////////////////////////
+    let select = document.getElementById( "sl_grid_size" );
+    select.onchange = function(){
+      $('#set').prop('disabled',false);
+      $('#start').prop('disabled',true);
+      $('#reset').prop('disabled',true);
+      $('#finish').prop('disabled',true);
+      $('#sl_grid_size').prop('disabled',false);
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // けっていボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    let num_selected_grid_size;
+    function click_set(){
+      const selected_grid_size = document.getElementById("sl_grid_size").value;
+      console.log(selected_grid_size);
+      $('#set').prop('disabled',false);
+      $('#start').prop('disabled',false);
+      $('#reset').prop('disabled',true);
+      $('#finish').prop('disabled',true);
+      $('#sl_grid_size').prop('disabled',false);
+      
+      // グリッドのサイズ変更
+      num_selected_grid_size =Number(selected_grid_size);
+      create_grid("sl_inner",num_selected_grid_size);
+
+      // タイル置き場の初期設定
+      for(i=1; i<maxsize+1; i++){
+        tile_lineup[i-1]=null;
+        $("#ts_inner_no"+i).empty();
+        if(i<=num_selected_grid_size){
+          document.getElementById('ts_inner_no'+i).style.backgroundColor = 'lightgray';
+          let str_index = '<img id="tile'+i+'" src="'+tile["no"+i].image+'" width="100%" draggable="false" ondragstart="f_dragstart(event)">' ;
+          $('#ts_inner_no'+i).append(str_index);
+          hold_lineup[i-1]=i;
+        }else{
+          document.getElementById('ts_inner_no'+i).style.backgroundColor = 'gray';
+          hold_lineup[i-1]=null;
+        }
+      }
+      document.getElementById("start").value=num_selected_grid_size;
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // かいしボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    function click_start(num_selected_grid_size){
+      $('#set').prop('disabled',true);
+      $('#start').prop('disabled',true);
+      $('#reset').prop('disabled',false);
+      $('#finish').prop('disabled',false);
+      $('#sl_grid_size').prop('disabled',true);
+
+      // ドラッグ＆ドロップの許可
+      console.log(num_selected_grid_size);
+      for(i=1; i<num_selected_grid_size+1; i++){
+    //   // 魔法陣エリア（左グリッド）を、ドロップ受け入れ可能とする
+        let id_blank_slot = document.getElementById('sl_inner_no'+i);
+        console.log('sl_inner_no'+i);
+        id_blank_slot.setAttribute("ondragover","f_dragover(event)");
+        id_blank_slot.setAttribute("ondrop", "f_drop(event)");
+
+    //  // 手札（右グリッドのタイル）をドラック可能にする
+        let target_tile_id="tile"+i;
+        console.log(target_tile_id);
+        let target_tile = document.getElementById(target_tile_id);
+    //   // ドラッグを許可
+        target_tile.setAttribute('draggable', "true");
+      }
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // かんせいボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    function click_finish(num_selected_grid_size){
+
+      let result = check_result();
+
+
+      // let result = true; //テスト用
+      if(result){
+      $('#set').prop('disabled',true);
+      $('#start').prop('disabled',true);
+      $('#reset').prop('disabled',false);
+      $('#finish').prop('disabled',true);
+      $('#sl_grid_size').prop('disabled',true);
+
+      alert("Amaizing!!!")
+
+      }else{
+      $('#set').prop('disabled',true);
+      $('#start').prop('disabled',true);
+      $('#reset').prop('disabled',false);
+      $('#finish').prop('disabled',false);
+      $('#sl_grid_size').prop('disabled',true);
+
+        alert("Keep on!!")
+      }
+ 
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // やりなおしボタンを押下した時の動作
+    ///////////////////////////////////////////////////////
+    document.querySelector('#reset').onclick=function() {
+      // リロード
+      document.location.reload();
+    }
+
+
+
+    ///////////////////////////////////////////////////////
+    //n×nのグリッドを生成する関数
+    ///////////////////////////////////////////////////////
+    function create_grid(parent_idname, grid_size){
+      // parent_id : グリッドを配置する要素のid名(#なし)
+      // grid_size : グリッド内のスロット数（例：３×３の場合、９）
+
+      let parent_id = "#"+parent_idname;
+
+      // grid_size = 25;
+
+      const slot_size = 50;
+      let num_row = Math.round(Math.sqrt(grid_size));
+      let side_length = num_row*slot_size;
+      console.log(grid_size,parent_id);
+      $(parent_id).empty();
+      $(parent_id).width(side_length);
+      $(parent_id).height(side_length);
+      for(let i = 1; i < grid_size+1; i++){
+        $(parent_id).append('<div class="tile" id="'+parent_idname+'_no'+i+'"></div>');
+        document.getElementById(parent_idname+'_no'+i).style.width = slot_size-2+"px";
+        document.getElementById(parent_idname+'_no'+i).style.height = slot_size-2+"px";
+        document.getElementById(parent_idname+'_no'+i).style.border = '1px solid darkgray';
+      }
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // 結果を確認する関数
+    ///////////////////////////////////////////////////////
+    function check_result(){
+      let result;
+      // スロットが埋まっていることを確認
+      for(i=0; i<num_selected_grid_size; i++){
+        if(tile_lineup[i]==null){
+          result =false;
+          return result;
+        }
+      }
+
+      let num_row = Math.round(Math.sqrt(num_selected_grid_size));
+      let sum_line = 0;
+
+      // 基準、１行目合計計算
+      for(i=0; i<num_row; i++){
+        sum_line += tile_lineup[i];
+      }
+      // alert(sum_line);
+
+      // 2行目-末行まで、合計を１行目と比較
+      for(i=1; i < num_row; i++){
+        let sum_line_2 = 0;
+        for(j=0; j<num_row; j++){
+          sum_line_2 += tile_lineup[num_row*i+j];
+        }
+        if(sum_line != sum_line_2){
+          result=false;
+          return result;
+        }
+      }
+
+      // １列目-末列まで、合計を１行目と比較
+      for(i=0; i < num_row; i++){
+        // console.log("i",i);
+        let sum_line_2 = 0;
+        for(j=0; j<num_row; j++){
+          sum_line_2 += tile_lineup[i+num_row*j];
+          // console.log("j",j,sum_line_2);
+        }
+        console.log(sum_line_2);
+        if(sum_line != sum_line_2){
+          result=false;
+          return result;
+        }
+      }
+      // alert("4");
+
+
+      // 右斜め合計を１行目と比較
+      let sum_line_2 = 0;
+      for(i=0; i < num_row; i++){
+        sum_line_2 += tile_lineup[(num_row+1)*i];
+      }
+      if(sum_line != sum_line_2){
+        result=false;
+        return result;
+      }
+      // alert("5");
+     
+
+      // 左斜め合計を１行目と比較
+      sum_line_2 = 0;
+      for(i=0; i < num_row; i++){
+        sum_line_2 += tile_lineup[(num_row-1)*(i+1)];
+      }
+      if(sum_line != sum_line_2){
+        result=false;
+        return result;
+      }
+      // alert("5");
+
+      return true;
+
+    }
+
+    ///////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////
+    //  ドラッグ　アンド　ドロップ
+    ///////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////
+
+
+    ///////////////////////////////////////////////////////
+    // ドラッグ開始
+    ///////////////////////////////////////////////////////
+      let src_domain;
+      let src_position;
+    function f_dragstart(event){
+    //ドラッグするデータのid名をDataTransferオブジェクトにセット
+      event.dataTransfer.setData("text", event.target.id);
+
+      // 移動元のスロットをドロップ受け入れ可能にする
+      let src_id_name=event.target.id;
+      id_dd_src=$("#"+src_id_name).parent().attr("id");
+      src_domain=id_dd_src.substr(0,2);
+      src_position=Number(id_dd_src.substr(11))-1;
+      console.log("src", src_domain, src_position);
+    }
+
+
+    ///////////////////////////////////////////////////////
+    //  ドラッグ要素がドロップ要素に重なっている間
+    ///////////////////////////////////////////////////////
+    function f_dragover(event){
+    //dragoverイベントをキャンセルして、ドロップ先の要素がドロップを受け付けるようにする
+      event.preventDefault();
+    }
+
+
+    ///////////////////////////////////////////////////////
+    // ドロップ時
+    ///////////////////////////////////////////////////////
+      let id_dd_src;
+      let id_dd_dest;
+      let dest_place;
+    function f_drop(event){
+
+    //ドラッグされたデータのid名をDataTransferオブジェクトから取得
+      let id_name = event.dataTransfer.getData("text");
+      console.log("id_name",id_name);
+      //id名からドラッグされた要素を取得
+      var drag_elm =document.getElementById(id_name);
+      console.log("drag_elm",drag_elm);
+      //ドロップ先にドラッグされた要素を追加
+      event.currentTarget.appendChild(drag_elm);
+      //エラー回避のため、ドロップ処理の最後にdropイベントをキャンセルしておく
+      event.preventDefault();
+ 
+      // D&Dされたタイルのオブジェクトを取得
+      id_dd_dest=$("#"+id_name).parent().attr("id");
+      let dest_domain=id_dd_dest.substr(0,2);
+      let dest_position=Number(id_dd_dest.substr(11))-1;
+      console.log("dest",dest_domain, dest_position);
+
+      // 移動先のスロットが重複してドロップ受け入れることを禁止にする
+      let id_dest_slot;
+      let tile_no=Number(id_name.substr(4));
+      if(dest_domain == "sl"){
+        id_dest_slot = document.getElementById('sl_inner_no'+(dest_position+1));
+        tile_lineup[dest_position]=tile_no;
+      }else{
+        id_dest_slot = document.getElementById('ts_inner_no'+(dest_position+1));
+        hold_lineup[dest_position]=tile_no;
+      }
+      id_dest_slot.removeAttribute("ondragover");
+      id_dest_slot.removeAttribute("ondrop");
+
+      // 移動元のスロットをドロップ受け入れ可能にする
+      let id_src_slot;
+      if(src_domain == "sl"){
+        id_src_slot = document.getElementById('sl_inner_no'+(src_position+1));
+        tile_lineup[src_position]=null;
+      }else{
+        id_src_slot = document.getElementById('ts_inner_no'+(src_position+1));
+        hold_lineup[src_position]=null;
+      }
+      id_src_slot.setAttribute("ondragover","f_dragover(event)");
+      id_src_slot.setAttribute("ondrop", "f_drop(event)");
+
+      console.log("sl",tile_lineup);
+      console.log("ts",hold_lineup);
+
+
+    }
+
+
+
+
+  </script>
+  
+</body>
+</html>
